@@ -1,0 +1,72 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: pass
+      POSTGRES_DB: inventory
+    ports:
+      - "5433:5432"
+    volumes:
+      - ./database/migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d inventory"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: .
+    command: ["python", "-m", "inventory_api.main"]
+    environment:
+      API_HOST: 0.0.0.0
+      API_PORT: "8080"
+      PG_HOST: postgres
+      PG_PORT: "5432"
+      PG_USER: user
+      PG_PASSWORD: pass
+      PG_DB: inventory
+      PG_POOL_SIZE: "3"
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_DB: "0"
+      REDIS_POOL_SIZE: "3"
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker:
+    build: .
+    command: ["python", "-m", "analytics_worker.main"]
+    environment:
+      PG_HOST: postgres
+      PG_PORT: "5432"
+      PG_USER: user
+      PG_PASSWORD: pass
+      PG_DB: inventory
+      PG_POOL_SIZE: "3"
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_DB: "0"
+      REDIS_POOL_SIZE: "3"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
