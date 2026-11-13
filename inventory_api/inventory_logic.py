@@ -1,26 +1,13 @@
 import json
 
-from sqlalchemy import select, func, case, insert
+from sqlalchemy import select, func, insert
 
 from database.tables import stock_events
+from database.queries import stock_subq
+from settings.config import RECEIPT_CHANNEL, ISSUE_CHANNEL
 from settings.logger import setup_logger
 
 logger = setup_logger(__name__)
-
-_signed_qty = case(
-    (stock_events.c.event_type == "receipt", stock_events.c.qty),
-    else_=-stock_events.c.qty,
-).label("signed_qty")
-
-stock_subq = (
-    select(
-        stock_events.c.warehouse,
-        stock_events.c.sku,
-        func.sum(_signed_qty).label("qty"),
-    )
-    .group_by(stock_events.c.warehouse, stock_events.c.sku)
-    .subquery()
-)
 
 
 async def record_event(
@@ -35,7 +22,7 @@ async def record_event(
                 event_type=event_type,
             )
         )
-    channel = "inventory.receipt" if event_type == "receipt" else "inventory.issue"
+    channel = RECEIPT_CHANNEL if event_type == "receipt" else ISSUE_CHANNEL
     await redis_conn.publish_with_retry(
         channel, json.dumps({"sku": sku, "qty": qty, "warehouse": warehouse})
     )

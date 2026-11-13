@@ -6,6 +6,7 @@ from sqlalchemy import select
 
 from analytics_worker.worker_logic import run_worker, seed_agg
 from database.tables import stock_events, stock_agg
+from settings.config import RECEIPT_CHANNEL, ISSUE_CHANNEL
 
 
 async def _wait_for_qty(
@@ -57,7 +58,7 @@ async def test_receipt_via_redis_pipeline(db_conn, redis_conn):
     try:
         await asyncio.wait_for(ready.wait(), timeout=5)
         await redis_conn.publish_with_retry(
-            "inventory.receipt",
+            RECEIPT_CHANNEL,
             json.dumps({"sku": "A-100", "qty": 50, "warehouse": "WH-1"}),
         )
 
@@ -88,7 +89,7 @@ async def test_issue_via_redis_pipeline(db_conn, redis_conn):
     try:
         await asyncio.wait_for(ready.wait(), timeout=5)
         await redis_conn.publish_with_retry(
-            "inventory.issue",
+            ISSUE_CHANNEL,
             json.dumps({"sku": "A-100", "qty": 20, "warehouse": "WH-1"}),
         )
         await _wait_for_qty(db_conn, "WH-1", "A-100", expected=30)
@@ -186,7 +187,7 @@ async def test_event_for_new_pair_creates_row(db_conn, redis_conn):
     try:
         await asyncio.wait_for(ready.wait(), timeout=5)
         await redis_conn.publish_with_retry(
-            "inventory.receipt",
+            RECEIPT_CHANNEL,
             json.dumps({"sku": "NEW-1", "qty": 42, "warehouse": "WH-9"}),
         )
         await _wait_for_qty(db_conn, "WH-9", "NEW-1", expected=42)
