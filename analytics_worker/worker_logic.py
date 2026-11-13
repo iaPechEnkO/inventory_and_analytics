@@ -1,37 +1,24 @@
 import asyncio
 import json
 
-from sqlalchemy import case, func, select
+from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
-from database.tables import stock_agg, stock_events
+from database.tables import stock_agg
+from database.queries import stock_subq
+from settings.config import CHANNELS, RECEIPT_CHANNEL, ISSUE_CHANNEL
 from settings.logger import setup_logger
 
 logger = setup_logger(__name__)
 
-CHANNELS = ("inventory.receipt", "inventory.issue")
-
 
 async def seed_agg(db):
-    signed = case(
-        (stock_events.c.event_type == "receipt", stock_events.c.qty),
-        else_=-stock_events.c.qty,
-    )
-    subq = (
-        select(
-            stock_events.c.warehouse,
-            stock_events.c.sku,
-            func.sum(signed).label("qty"),
-        )
-        .group_by(stock_events.c.warehouse, stock_events.c.sku)
-        .subquery()
-    )
     async with db.begin() as conn:
         await conn.execute(
             pg_insert(stock_agg)
             .from_select(
                 ["warehouse", "sku", "qty"],
-                select(subq.c.warehouse, subq.c.sku, subq.c.qty),
+                select(stock_subq.c.warehouse, stock_subq.c.sku, stock_subq.c.qty),
             )
             .on_conflict_do_update(
                 index_elements=["warehouse", "sku"],
@@ -78,9 +65,9 @@ async def _process_message(db, msg: dict):
     if not isinstance(payload["warehouse"], str) or not payload["warehouse"]:
         logger.warning(f'[worker] invalid warehouse: {payload["warehouse"]}')
         return False
-    if msg["channel"] == "inventory.receipt":
+    if msg["channel"] == RECEIPT_CHANNEL:
         event_type = "receipt"
-    elif msg["channel"] == "inventory.issue":
+    elif msg["channel"] == ISSUE_CHANNEL:
         event_type = "issue"
     else:
         logger.warning(f"[worker] unknown channel: {msg['channel']}")

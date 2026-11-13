@@ -23,6 +23,10 @@ USE_CONTAINERS_FOR_TESTS = (
     os.getenv("USE_CONTAINERS_FOR_TESTS", "false").lower() == "true"
 )
 
+RECEIPT_CHANNEL = "inventory.receipt"
+ISSUE_CHANNEL = "inventory.issue"
+CHANNELS = (RECEIPT_CHANNEL, ISSUE_CHANNEL)
+
 
 def database_url(host=None, port=None, user=None, password=None, db=None):
     return (

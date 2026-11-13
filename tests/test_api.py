@@ -7,6 +7,7 @@ from sqlalchemy import select
 
 from database.tables import stock_events
 from inventory_api.api import receipt, issue, stock, summary
+from settings.config import RECEIPT_CHANNEL
 
 
 @pytest.fixture
@@ -29,7 +30,7 @@ async def api_client(db_conn, redis_conn):
 async def test_receipt_creates_event_and_publishes(api_client, db_conn, redis_conn):
     pubsub = redis_conn.pubsub()
     try:
-        await pubsub.subscribe("inventory.receipt")
+        await pubsub.subscribe(RECEIPT_CHANNEL)
         await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
 
         resp = await api_client.post(
@@ -50,7 +51,7 @@ async def test_receipt_creates_event_and_publishes(api_client, db_conn, redis_co
         msg = await asyncio.wait_for(
             pubsub.get_message(ignore_subscribe_messages=True), timeout=2.0
         )
-        assert msg is not None and msg["channel"] == "inventory.receipt"
+        assert msg is not None and msg["channel"] == RECEIPT_CHANNEL
     finally:
         await pubsub.aclose()
 
