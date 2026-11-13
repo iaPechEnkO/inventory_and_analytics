@@ -13,7 +13,7 @@ logger = setup_logger(__name__)
 async def create_app() -> web.Application:
     app = web.Application()
 
-    logger.info("Trying to create database and redis connections...")
+    logger.info("Trying to create database and redis connectors...")
     try:
         db = DBConnector()
         redis_conn = RedisConnector()
@@ -21,7 +21,7 @@ async def create_app() -> web.Application:
         app["db"] = db
         app["redis"] = redis_conn
     except Exception as err:
-        error_message = "An error occurred during database or redis connections"
+        error_message = "An error occurred during database or redis connectors creation"
         logger.error(f"{error_message}: {err}")
         raise
 
